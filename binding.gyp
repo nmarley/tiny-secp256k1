@@ -24,7 +24,9 @@
       "./native/secp256k1/src",
       "<!(node -e \"require('nan')\")"
     ],
-    "defines": [],
+    "defines": [
+      "ENABLE_MODULE_RECOVERY=1"
+    ],
     "cflags": [
       "-Wall",
       "-Wno-maybe-uninitialized",

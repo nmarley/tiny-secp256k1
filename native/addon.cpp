@@ -3,6 +3,7 @@
 
 #include <nan.h>
 #include <secp256k1.h>
+#include <secp256k1_recovery.h>
 
 #define THROW_BAD_ARGUMENTS Nan::ThrowTypeError("Not enough arguments")
 #define THROW_BAD_PRIVATE Nan::ThrowTypeError("Expected Private")
@@ -307,33 +308,57 @@ NAN_METHOD(ecdsaRecoverCompact) {
 	const auto hash = info[0].As<v8::Object>();
 	const auto sig = info[1].As<v8::Object>();
 
-    int recid = (vchSig[0] - 27) & 3;
-    bool fComp = ((vchSig[0] - 27) & 4) != 0;
+    char *pbuf = node::Buffer::Data(hash);
+    // pbuf[1]
+    // return reinterpret_cast<const unsigned char*>(node::Buffer::Data(x));
+
+	//unsigned char output[32];
+	//memcpy(output, asDataPointer(d), 32);
+	//if (secp256k1_ec_privkey_tweak_add(context, output, tweak_negated) == 0) return RETURNV(Nan::Null());
+	//template <typename T>
+	//const unsigned char* asDataPointer (const T& x) {
+//		return reinterpret_cast<const unsigned char*>(node::Buffer::Data(x));
+//	}
+
+/*
+NAN_METHOD(New2) {
+  v8::Local<v8::Object> buf = NewBuffer(DATA_SIZE).ToLocalChecked();
+  char* pbuf = node::Buffer::Data(buf);
+  for (unsigned char i = 0; i < DATA_SIZE; i++) {
+    pbuf[i] = 'a' + i;
+  }
+  info.GetReturnValue().Set(buf);
+}
+*/
+//   return node::Buffer::HasInstance(x) && node::Buffer::Length(x) == 32;
+
+    uint8_t byteOne = pbuf[0];
+    int recid = (byteOne - 27) & 3;
+    bool fComp = ((byteOne - 27) & 4) != 0;
 
 	secp256k1_pubkey public_key;
+	secp256k1_ecdsa_signature signatureOld;
 	secp256k1_ecdsa_recoverable_signature signature;
 
 	if (!isScalar(hash)) return THROW_BAD_HASH;
     // TODO: check recoverable signature
-	// if (!isSignature(sig, signature)) return THROW_BAD_SIGNATURE;
-    //	bool isSignature (const T& x, secp256k1_ecdsa_signature& signature) {
-    //		if (!node::Buffer::HasInstance(x)) return false;
-    //		if (node::Buffer::Length(x) != 64) return false;
-    //		return secp256k1_ecdsa_signature_parse_compact(context, &signature, asDataPointer(x)) != 0;
-    //	}
+
     if (node::Buffer::Length(sig) != 65)
         return THROW_BAD_SIGNATURE;
 
-    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(context, &signature, asDataPointer(sig[1]), recid)) {
+    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(context, &signature, pbuf[1], recid)) {
         return THROW_BAD_SIGNATURE;
     }
-    if (!secp256k1_ecdsa_recover(context, &public_key, &signature, asDataPointer(hash))) {
-        // TODO: return proper throw error
-        return false;
-    }
+    // if (!secp256k1_ecdsa_recover(context, &public_key, &signature, asDataPointer(hash))) {
+    //    // TODO: return proper throw error
+    //    return false;
+    // }
 
-	const auto flags = assumeCompression<2>(info, p);
-	return RETURNV(pointAsBuffer(public_key, flags));
+	// const auto flags = assumeCompression<2>(info, p);
+	// return RETURNV(pointAsBuffer(public_key, flags));
+
+	const auto result = secp256k1_ecdsa_verify(context, &signatureOld, asDataPointer(hash), &public_key) == 1;
+	return RETURNV(result);
 }
 
 NAN_MODULE_INIT(Init) {

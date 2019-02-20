@@ -87,6 +87,11 @@
           }
         }
       ]
-    ]
+    ],
+    "direct_dependent_settings": {
+      "defines": [
+        "ENABLE_MODULE_RECOVERY=1"
+      ]
+    }
   }]
 }

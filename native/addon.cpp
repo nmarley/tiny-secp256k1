@@ -299,6 +299,43 @@ NAN_METHOD(ecdsaVerify) {
 	return RETURNV(result);
 }
 
+// returns ?Point
+NAN_METHOD(ecdsaRecoverCompact) {
+	Nan::HandleScope scope;
+	EXPECT_ARGS(2);
+
+	const auto hash = info[0].As<v8::Object>();
+	const auto sig = info[1].As<v8::Object>();
+
+    int recid = (vchSig[0] - 27) & 3;
+    bool fComp = ((vchSig[0] - 27) & 4) != 0;
+
+	secp256k1_pubkey public_key;
+	secp256k1_ecdsa_recoverable_signature signature;
+
+	if (!isScalar(hash)) return THROW_BAD_HASH;
+    // TODO: check recoverable signature
+	// if (!isSignature(sig, signature)) return THROW_BAD_SIGNATURE;
+    //	bool isSignature (const T& x, secp256k1_ecdsa_signature& signature) {
+    //		if (!node::Buffer::HasInstance(x)) return false;
+    //		if (node::Buffer::Length(x) != 64) return false;
+    //		return secp256k1_ecdsa_signature_parse_compact(context, &signature, asDataPointer(x)) != 0;
+    //	}
+    if (node::Buffer::Length(sig) != 65)
+        return THROW_BAD_SIGNATURE;
+
+    if (!secp256k1_ecdsa_recoverable_signature_parse_compact(context, &signature, asDataPointer(sig[1]), recid)) {
+        return THROW_BAD_SIGNATURE;
+    }
+    if (!secp256k1_ecdsa_recover(context, &public_key, &signature, asDataPointer(hash))) {
+        // TODO: return proper throw error
+        return false;
+    }
+
+	const auto flags = assumeCompression<2>(info, p);
+	return RETURNV(pointAsBuffer(public_key, flags));
+}
+
 NAN_MODULE_INIT(Init) {
   context = secp256k1_context_create(SECP256K1_CONTEXT_SIGN | SECP256K1_CONTEXT_VERIFY);
 
@@ -317,6 +354,7 @@ NAN_MODULE_INIT(Init) {
   // ecdsa
   Nan::Export(target, "sign", ecdsaSign);
   Nan::Export(target, "verify", ecdsaVerify);
+  Nan::Export(target, "recoverCompact", ecdsaRecoverCompact);
 }
 
 NODE_MODULE(secp256k1, Init)
